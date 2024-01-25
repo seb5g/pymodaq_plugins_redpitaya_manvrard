@@ -1,0 +1,5 @@
+title = 'this is the configuration file of the redpitaya plugin'
+
+ip_address = '169.254.134.87'
+port = 5000
+
