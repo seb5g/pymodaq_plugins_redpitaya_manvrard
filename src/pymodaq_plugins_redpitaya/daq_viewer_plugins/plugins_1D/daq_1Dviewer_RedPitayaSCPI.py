@@ -41,11 +41,13 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
             {'title': 'Sample rate:', 'name': 'sample_rate', 'type': 'int', 'readonly': True},
             {'title': 'Nsamples:', 'name': 'nsamples', 'type': 'int', },
             {'title': 'All samples:', 'name': 'all_samples', 'type': 'bool', 'value': False},
+            {'title': 'Buffer Length:', 'name': 'buffer_length', 'type': 'int', 'readonly': True},
          ]},
         {'title': 'Triggering:', 'name': 'triggering', 'type': 'group', 'children': [
             {'title': 'Source:', 'name': 'source', 'type': 'list',
              'limits': RedPitayaScpi.TRIGGER_SOURCES},
-            {'title': 'level (V):', 'name': 'level', 'type': 'float', },
+            {'title': 'Level (V):', 'name': 'level', 'type': 'float', },
+            {'title': 'Center Trigger:', 'name': 'center_trigger', 'type': 'bool', },
         ]},
         ]
 
@@ -66,6 +68,8 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
             self.settings.child('sampling', 'decimation').setValue(self.controller.decimation)
             self.settings.child('sampling', 'sample_rate').setValue(self.controller.CLOCK /
                                                         self.controller.decimation)
+        elif param.name() == 'level':
+            self.controller.acq_trigger_level = param.value()
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -87,8 +91,17 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
                                                             port=self.settings['port']))
         bname = self.controller.name
         self.settings.child('bname').setValue(bname)
-        self.settings.child('sampling', 'nsamples').setValue(self.controller.acq_size)
-        self.settings.child('sampling', 'nsamples').setLimits((1, self.controller.acq_size))
+
+        self.controller.acquisition_reset()
+
+        self.controller.acq_format = 'ASCII'
+        self.controller.acq_units = 'VOLTS'
+        self.controller.acq_trigger_level = self.settings['triggering', 'level']
+        self.settings.child('sampling', 'buffer_length').setValue(self.controller.buffer_length)
+        self.settings.child('sampling', 'nsamples').setValue(
+            self.settings['sampling', 'buffer_length'])
+        self.settings.child('sampling', 'nsamples').setLimits((1,
+                                                               self.settings['sampling', 'buffer_length']))
         self.settings.child('sampling', 'sample_rate').setValue(self.controller.CLOCK /
                                                     self.controller.decimation)
         self.settings.child('sampling', 'decimation').setValue(self.controller.decimation)
@@ -111,13 +124,22 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
         kwargs: dict
             others optionals arguments
         """
-        self.controller.acquisition_reset()
-        self.controller.decimation = self.settings['sampling', 'decimation']
-        self.controller.acq_format = 'ASCII'
-        self.controller.acq_units = 'VOLTS'
-        self.controller.acq_trigger_level = self.settings['triggering', 'level']
+
+        nsamples = self.settings['sampling', 'nsamples'] if \
+            not self.settings['sampling', 'all_samples'] else self.settings['sampling',
+                                                                            'buffer_length']
+        wait_time = nsamples / self.controller.CLOCK * self.controller.decimation
+
+        if self.settings['triggering',  'center_trigger']:
+            self.controller.acq_trigger_delay_samples = \
+                - int(self.settings['sampling', 'buffer_length'] / 2 - nsamples / 2)
+        else:
+            self.controller.acq_trigger_delay_samples = - int(self.settings['sampling',
+                                                                            'buffer_length'] / 2)
+
         self.controller.acquisition_start()
-        QThread.msleep(1000)
+
+        QThread.msleep(max((1, int(wait_time * 1000))))
         self.controller.acq_trigger_source = self.settings['triggering', 'source']
 
         while not self.controller.acq_trigger_status:
@@ -127,15 +149,14 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
         while not self.controller.acq_buffer_filled:
             QThread.msleep(10)
             QtWidgets.QApplication.processEvents()
-        if self.settings['sampling', 'all_samples']:
-            data_array = self.controller.analog_in[1].get_data_from_ascii()
-        else:
-            data_array = self.controller.analog_in[1].get_data_from_ascii(8192,
-                npts=self.settings['sampling', 'nsamples'])
-        axis = Axis('time', units='s', offset=self.controller.acq_trigger_delay_ns,
+
+        data_array = self.controller.analog_in[1].get_data(
+            npts=self.settings['sampling', 'nsamples'],
+            )
+        axis = Axis('time', units='s', offset=self.controller.acq_trigger_delay_ns * 1e-9,
                     scaling=self.controller.decimation / self.controller.CLOCK,
                     size=len(data_array))
-        self.dte_signal.emit(DataToExport('myplugin',
+        self.dte_signal.emit(DataToExport('Redpitaya_dte',
                                           data=[DataFromPlugins(name='RedPitaya', data=[data_array],
                                                                 dim='Data1D', labels=['AI0'],
                                                                 axes=[axis])]))
