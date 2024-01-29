@@ -29,57 +29,16 @@ Authors
 
 * Sebastien J. Weber  (sebastien.weber@cemes.fr)
 
-.. if needed use this field
-
-    Contributors
-    ============
-
-    * First Contributor
-    * Other Contributors
-
-.. if needed use this field
-
-  Depending on the plugin type, delete/complete the fields below
-
-
 Instruments
 ===========
 
 Below is the list of instruments included in this plugin
 
-.. if needed use this field
-    Actuators
-    +++++++++
-
-    * **yyy**: control of yyy actuators
-    * **xxx**: control of xxx actuators
-.. if needed use this field
-Viewer0D
-++++++++
-
-* **yyy**: control of yyy 0D detector
-* **xxx**: control of xxx 0D detector
 
 Viewer1D
 ++++++++
 
 * **RedPitayaSCPI**: perform analog data acquisition using one of the fast channels
-
-
-.. if needed use this field
-    Viewer2D
-    ++++++++
-
-    * **yyy**: control of yyy 2D detector
-    * **xxx**: control of xxx 2D detector
-
-.. if needed use this field
-    PID Models
-    ==========
-
-.. if needed use this field
-    Extensions
-    ==========
 
 
 Installation instructions
