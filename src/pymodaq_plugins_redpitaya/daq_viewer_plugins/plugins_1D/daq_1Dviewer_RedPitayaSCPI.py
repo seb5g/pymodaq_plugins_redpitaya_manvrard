@@ -10,8 +10,6 @@ from pymodaq_plugins_redpitaya.utils import Config
 
 from pymeasure.instruments.redpitaya.redpitaya_scpi import RedPitayaScpi
 
-plugin_config = Config()
-
 
 class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
     """ Instrument plugin class for a 1D viewer.
@@ -31,23 +29,30 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
          hardware library.
 
     """
+    plugin_config = Config()
+
     params = comon_parameters+[
         {'title': 'IP Address:', 'name': 'ip_address', 'type': 'str',
          'value': plugin_config('ip_address')},
         {'title': 'Port:', 'name': 'port', 'type': 'int', 'value': plugin_config('port')},
         {'title': 'Board name:', 'name': 'bname', 'type': 'str', 'readonly': True},
         {'title': 'Sampling:', 'name': 'sampling', 'type': 'group', 'children': [
-            {'title': 'Decimation:', 'name': 'decimation', 'type': 'int', 'step': 2, 'max': 2**16},
+            {'title': 'Decimation:', 'name': 'decimation', 'type': 'int', 'step': 2, 'max': 2**16,
+             'value': plugin_config('sampling', 'decimation')},
+            {'title': 'Average skipped samples:', 'name': 'average', 'type': 'bool', 'value': False},
             {'title': 'Sample rate:', 'name': 'sample_rate', 'type': 'int', 'readonly': True},
-            {'title': 'Nsamples:', 'name': 'nsamples', 'type': 'int', },
-            {'title': 'All samples:', 'name': 'all_samples', 'type': 'bool', 'value': False},
+            {'title': 'Nsamples:', 'name': 'nsamples', 'type': 'int',
+             'value': plugin_config('sampling', 'nsamples')},
             {'title': 'Buffer Length:', 'name': 'buffer_length', 'type': 'int', 'readonly': True},
+
          ]},
         {'title': 'Triggering:', 'name': 'triggering', 'type': 'group', 'children': [
             {'title': 'Source:', 'name': 'source', 'type': 'list',
-             'limits': RedPitayaScpi.TRIGGER_SOURCES},
-            {'title': 'Level (V):', 'name': 'level', 'type': 'float', },
-            {'title': 'Center Trigger:', 'name': 'center_trigger', 'type': 'bool', },
+             'limits': RedPitayaScpi.TRIGGER_SOURCES, 'value': plugin_config('trigger', 'source')},
+            {'title': 'Level (V):', 'name': 'level', 'type': 'float',
+             'value': plugin_config('trigger', 'level')},
+            {'title': 'Center Trigger:', 'name': 'center_trigger', 'type': 'bool',
+             'value': plugin_config('trigger', 'center_trigger')},
         ]},
         ]
 
@@ -68,8 +73,27 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
             self.settings.child('sampling', 'decimation').setValue(self.controller.decimation)
             self.settings.child('sampling', 'sample_rate').setValue(self.controller.CLOCK /
                                                         self.controller.decimation)
+
         elif param.name() == 'level':
             self.controller.acq_trigger_level = param.value()
+
+        elif param.name() == 'center_trigger':
+           self._center_trigger()
+
+        elif param.name() == 'average':
+            self.controller.average_skipped_samples = param.value()
+
+        elif param.name() == 'nsamples':
+            self._center_trigger()
+
+    def _center_trigger(self):
+        if self.settings['triggering', 'center_trigger']:
+            self.controller.acq_trigger_delay_samples = \
+                int(self.settings['sampling', 'buffer_length'] / 2 -
+                    self.settings['sampling', 'nsamples'] / 2)
+        else:
+            self.controller.acq_trigger_delay_samples = int(self.settings['sampling',
+            'buffer_length'] / 2)
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -97,14 +121,15 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
         self.controller.acq_format = 'ASCII'
         self.controller.acq_units = 'VOLTS'
         self.controller.acq_trigger_level = self.settings['triggering', 'level']
+        self.controller.decimation = self.settings['sampling', 'decimation']
+        self.controller.average_skipped_samples = self.settings['sampling', 'average']
         self.settings.child('sampling', 'buffer_length').setValue(self.controller.buffer_length)
-        self.settings.child('sampling', 'nsamples').setValue(
-            self.settings['sampling', 'buffer_length'])
-        self.settings.child('sampling', 'nsamples').setLimits((1,
-                                                               self.settings['sampling', 'buffer_length']))
+        self.settings.child('sampling',
+                            'nsamples').setLimits((1, self.settings['sampling', 'buffer_length']))
         self.settings.child('sampling', 'sample_rate').setValue(self.controller.CLOCK /
                                                     self.controller.decimation)
-        self.settings.child('sampling', 'decimation').setValue(self.controller.decimation)
+        self._center_trigger()
+
         info = f"Succesfully connected to the Redpitaya {bname} board"
         initialized = True
         return info, initialized
@@ -125,17 +150,13 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
             others optionals arguments
         """
 
-        nsamples = self.settings['sampling', 'nsamples'] if \
-            not self.settings['sampling', 'all_samples'] else self.settings['sampling',
-                                                                            'buffer_length']
-        wait_time = nsamples / self.controller.CLOCK * self.controller.decimation
+        nsamples = self.settings['sampling', 'nsamples']
+        wait_time = nsamples / self.controller.CLOCK * self.settings['sampling', 'decimation']
 
         if self.settings['triggering',  'center_trigger']:
-            self.controller.acq_trigger_delay_samples = \
-                - int(self.settings['sampling', 'buffer_length'] / 2 - nsamples / 2)
+            offset = -self.settings['sampling', 'decimation'] / self.controller.CLOCK * nsamples / 2
         else:
-            self.controller.acq_trigger_delay_samples = - int(self.settings['sampling',
-                                                                            'buffer_length'] / 2)
+            offset = 0
 
         self.controller.acquisition_start()
 
@@ -150,12 +171,10 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
             QThread.msleep(10)
             QtWidgets.QApplication.processEvents()
 
-        data_array = self.controller.analog_in[1].get_data(
-            npts=self.settings['sampling', 'nsamples'],
-            )
-        axis = Axis('time', units='s', offset=self.controller.acq_trigger_delay_ns * 1e-9,
-                    scaling=self.controller.decimation / self.controller.CLOCK,
-                    size=len(data_array))
+        data_array = self.controller.analog_in[1].get_data(npts=nsamples)
+        axis = Axis('time', units='s', offset=offset,
+                    scaling=self.settings['sampling', 'decimation'] / self.controller.CLOCK,
+                    size=nsamples)
         self.dte_signal.emit(DataToExport('Redpitaya_dte',
                                           data=[DataFromPlugins(name='RedPitaya', data=[data_array],
                                                                 dim='Data1D', labels=['AI0'],

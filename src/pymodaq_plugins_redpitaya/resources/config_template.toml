@@ -3,3 +3,11 @@ title = 'this is the configuration file of the redpitaya plugin'
 ip_address = '169.254.134.87'
 port = 5000
 
+[sampling]
+decimation = 8
+nsamples = 2000
+
+[trigger]
+source = 'CH1_PE'  # choose in ['DISABLED', 'NOW', 'CH1_PE', 'CH1_NE', 'CH2_PE', 'CH2_NE', 'EXT_PE', 'EXT_NE', 'AWG_PE', 'AWG_NE']
+level = 0.0
+center_trigger = true
