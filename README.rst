@@ -29,6 +29,7 @@ Authors
 
 * Sebastien J. Weber  (sebastien.weber@cemes.fr)
 
+
 Instruments
 ===========
 
@@ -39,6 +40,7 @@ Viewer1D
 ++++++++
 
 * **RedPitayaSCPI**: perform analog data acquisition using one of the fast channels
+
 
 
 Installation instructions
