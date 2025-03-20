@@ -11,3 +11,8 @@ nsamples = 2000
 source = 'CH1_PE'  # choose in ['DISABLED', 'NOW', 'CH1_PE', 'CH1_NE', 'CH2_PE', 'CH2_NE', 'EXT_PE', 'EXT_NE', 'AWG_PE', 'AWG_NE']
 level = 0.0
 center_trigger = true
+
+[generator]
+amplitude = 1  #in V
+frequency = 1000 # in Hz
+shape = 'SINE'
