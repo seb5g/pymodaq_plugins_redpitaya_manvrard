@@ -171,12 +171,13 @@ class DAQ_1DViewer_RedPitayaSCPI(DAQ_Viewer_base):
             QThread.msleep(10)
             QtWidgets.QApplication.processEvents()
 
-        data_array = self.controller.analog_in[1].get_data(npts=nsamples)
+        data_list = [self.controller.analog_in[1].get_data(npts=nsamples)]
+        data_list.append(self.controller.analog_in[2].get_data(npts=nsamples))
         axis = Axis('time', units='s', offset=offset,
                     scaling=self.settings['sampling', 'decimation'] / self.controller.CLOCK,
                     size=nsamples)
         self.dte_signal.emit(DataToExport('Redpitaya_dte',
-                                          data=[DataFromPlugins(name='RedPitaya', data=[data_array],
+                                          data=[DataFromPlugins(name='RedPitaya', data=data_list,
                                                                 dim='Data1D', labels=['AI0'],
                                                                 axes=[axis])]))
 
