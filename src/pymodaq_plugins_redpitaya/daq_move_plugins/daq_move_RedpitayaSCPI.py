@@ -17,23 +17,36 @@ plugin_config = Config()
 
 
 # TODO:
-# (1) change the name of the following class to DAQ_Move_TheNameOfYourChoice
+# (1) change the name of the following class to DAQ_Move_TheNameOfYourChoice X
 # (2) change the name of this file to daq_move_TheNameOfYourChoice ("TheNameOfYourChoice" should be the SAME
-#     for the class name and the file name.)
+#     for the class name and the file name.) X
 # (3) this file should then be put into the right folder, namely IN THE FOLDER OF THE PLUGIN YOU ARE DEVELOPING:
-#     pymodaq_plugins_my_plugin/daq_move_plugins
+#     pymodaq_plugins_my_plugin/daq_move_plugins X
 class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
+    """ Instrument plugin class for Red Pitaya
+
+       This object inherits all functionalities to communicate with PyMoDAQ’s DAQ_Move module through
+       inheritance via DAQ_Move_base. It makes a bridge between the DAQ_Move module and the
+       Python wrapper of a particular instrument.
+
+       * Should be compatible with all redpitaya flavours using the SCPI communication protocol
+       * Tested with the STEMlab 125-14 version
+       * PyMoDAQ >= 4.1.0
+       * Linux Ubuntu
+       *
+       """
+
     """ Instrument plugin class for an actuator.
     
     This object inherits all functionalities to communicate with PyMoDAQ’s DAQ_Move module through inheritance via
     DAQ_Move_base. It makes a bridge between the DAQ_Move module and the Python wrapper of a particular instrument.
 
     TODO Complete the docstring of your plugin with:
-        * The set of controllers and actuators that should be compatible with this instrument plugin.
-        * With which instrument and controller it has been tested.
-        * The version of PyMoDAQ during the test.
-        * The version of the operating system.
-        * Installation instructions: what manufacturer’s drivers should be installed to make it run?
+        * The set of controllers and actuators that should be compatible with this instrument plugin. X
+        * With which instrument and controller it has been tested. X
+        * The version of PyMoDAQ during the test. X
+        * The version of the operating system. <--
+        * Installation instructions: what manufacturer’s drivers should be installed to make it run? <--
 
     Attributes:
     -----------
@@ -44,16 +57,38 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
     # TODO add your particular attributes here if any
 
     """
-    is_multiaxes = True  # TODO for your plugin set to True if this plugin is controlled for a multiaxis controller
-    _axis_names: Union[List[str], Dict[str, int]] = ['Amplitude', 'Frequency']  # TODO for your plugin: complete the list
-    _controller_units: Union[str, List[str]] = ['V','Hz']  # TODO for your plugin: put the correct unit here, it could be
+    is_multiaxes = True
+    _axis_names: Union[List[str], Dict[str, int]] = ['amplitude', 'frequency']
+    _controller_units: Union[str, List[str]] = ['V','Hz']
     # TODO  a single str (the same one is applied to all axes) or a list of str (as much as the number of axes)
     _epsilon: Union[float, List[float]] = 0.1  # TODO replace this by a value that is correct depending on your controller
     # TODO it could be a single float of a list of float (as much as the number of axes)
     data_actuator_type = DataActuatorType.DataActuator  # wether you use the new data style for actuator otherwise set this
     # as  DataActuatorType.float  (or entirely remove the line)
 
+    plugin_config = Config()
+
     params = [   # TODO for your custom plugin: elements to be added here as dicts in order to control your custom stage
+                 {'title': 'IP Address:', 'name': 'ip_address', 'type': 'str',
+                  'value': plugin_config('ip_address')},
+                 {'title': 'Port:', 'name': 'port', 'type': 'int', 'value': plugin_config('port')},
+                 {'title': 'Board name:', 'name': 'bname', 'type': 'str', 'readonly': True},
+                 {'title': 'Channel', 'name': 'channel', 'type': 'list', 'limits':{'1': 1, '2': 2},
+                  'value': plugin_config('generator', 'channel')},
+                 {'title': 'Enable', 'name': 'enable', 'type': 'list',
+                  'limits': AnalogOutputFastChannel.STATE, 'value': plugin_config('generator', 'state')},
+                 #{'title': 'Triggering:', 'name': 'triggering', 'type': 'group', 'children': [
+                     #{'title': 'Source:', 'name': 'source', 'type': 'list',
+                      #'limits': AnalogOutputFastChannel.GEN_TRIGGER_SOURCES, 'value': plugin_config('trigger', 'source')},
+                 #]},
+                {'title': 'Shape', 'name': 'shape', 'type': 'list',
+                      'limits': AnalogOutputFastChannel.SHAPES, 'value': plugin_config('generator', 'shape')},
+                 {'title': 'Offset', 'name': 'offset', 'type': 'float', 'limits' : AnalogOutputFastChannel.OFFSETS,
+                  'value': plugin_config('generator', 'offset')},
+                {'title': 'Phase', 'name': 'phase', 'type': 'float', 'limits' : AnalogOutputFastChannel.PHASES,
+                      'value': plugin_config('generator', 'phase')},
+                {'title': 'Dutycycle', 'name': 'dutycycle', 'type': 'float', 'limits' : AnalogOutputFastChannel.CYCLES,
+                      'value': plugin_config('generator', 'cycle')},
                 ] + comon_parameters_fun(is_multiaxes, axis_names=_axis_names, epsilon=_epsilon)
     # _epsilon is the initial default value for the epsilon parameter allowing pymodaq to know if the controller reached
     # the target value. It is the developer responsibility to put here a meaningful value
@@ -73,15 +108,10 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         -------
         float: The position obtained after scaling conversion.
         """
-        if self.axis_name == 'Amplitude':
-            val = Q_(self.aout.amplitude, 'V')
-        elif self.axis_name == 'Frequency':
-            val = Q_(self.aout.frequency, 'Hz')
-        else:
-            raise ValueError('Invalid axis')
-
-        pos = DataActuator(data=val.m_as(self.axis_unit), units=self.axis_unit)  # when writing your own plugin replace this line
+        pos = DataActuator(data=getattr(self.aout, self.axis_name),
+                           units=self.axis_unit)  # when writing your own plugin replace this line
         pos = self.get_position_with_scaling(pos)
+
         return pos
 
     def user_condition_to_reach_target(self) -> bool:
@@ -100,9 +130,7 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
 
     def close(self):
         """Terminate the communication protocol"""
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        #  self.controller.your_method_to_terminate_the_communication()  # when writing your own plugin replace this line
+        self.enable(False)
 
     def commit_settings(self, param: Parameter):
         """Apply the consequences of a change of value in the detector settings
@@ -112,7 +140,39 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         param: Parameter
             A given parameter (within detector_settings) whose value has been changed by the user
         """
-        pass
+        if param.name() == 'axis':
+
+            if param.value() =='frequency':
+                self.settings.child('bounds', 'min_bound').setValue(1e-6)
+                self.settings.child('bounds', 'max_bound').setValue(50e6)
+            elif param.value == 'amplitude':
+                self.settings.child('bounds', 'min_bound').setValue(0)
+                self.settings.child('bounds', 'max_bound').setValue(1)
+
+            #self.settings['bounds', 'is_bounds']
+            self.settings.child('bounds', 'is_bounds').value()
+            self.settings.child('bounds', 'is_bounds').setValue(True)
+        elif param.name() == 'enable':
+            self.aout.enable = param.value()
+        elif param.name() == 'shape':
+            self.aout.shape = param.value()
+        elif param.name() == 'offset':
+            self.aout.offset = param.value()
+        elif param.name() == 'phase':
+            self.aout.phase = param.value()
+        elif param.name() == 'dutycycle':
+            self.aout.dutycycle = param.value()
+
+    def is_enabled(self) -> bool:
+        return self.settings['enable'] == 'ON'
+
+    def enable(self, status = True):
+        self.aout.enable = 'ON' if status else 'OFF'
+
+    @property
+    def aout(self):
+        """ It defines what output channel the user chose"""
+        return self.controller.analog_out[self.settings['channel']]
 
     def ini_stage(self, controller=None):
         """Actuator communication initialization
@@ -134,11 +194,11 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         else:
             self.controller = controller
 
-        self.aout: AnalogOutputFastChannel = self.controller.analog_out[1]
-        self.aout.shape = plugin_config('generator', 'shape')
-        self.aout.amplitude = plugin_config('generator', 'amplitude')
-        self.aout.frequency = plugin_config('generator', 'frequency')
-        self.aout.enable= 'ON'
+        self.aout.shape = self.settings['shape'] #plugin_config('generator', 'shape')
+
+        self.settings.child('bounds', 'is_bounds').setOpts(readonly=True)
+
+        self.aout.enable = self.settings['enable']
         self.aout.run()
 
         info = "Whatever info you want to log"
@@ -152,14 +212,13 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         ----------
         value: (float) value of the absolute target positioning
         """
-
+        if not self.is_enabled():
+            self.enable()
         value = self.check_bound(value)  #if user checked bounds, the defined bounds are applied here
         self.target_value = value
         value = self.set_position_with_scaling(value)  # apply scaling if the user specified one
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_set_an_absolute_value(value.value())  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
+
+        setattr(self.controller.analog_out[self.settings['channel']], self.axis_name, value.value(self.axis_unit))
 
     def move_rel(self, value: DataActuator):
         """ Move the actuator to the relative target actuator value defined by value
@@ -170,28 +229,15 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         """
         value = self.check_bound(self.current_position + value) - self.current_position
         self.target_value = value + self.current_position
-        value = self.set_position_relative_with_scaling(value)
-
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_set_a_relative_value(value.value())  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
+        self.move_abs(self.target_value)
 
     def move_home(self):
         """Call the reference method of the controller"""
-
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_get_to_a_known_reference()  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
+        pass
 
     def stop_motion(self):
       """Stop the actuator and emits move_done signal"""
-
-      ## TODO for your custom plugin
-      raise NotImplemented  # when writing your own plugin remove this line
-      self.controller.your_method_to_stop_positioning()  # when writing your own plugin replace this line
-      self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
+    pass
 
 
 if __name__ == '__main__':
