@@ -13,6 +13,11 @@ level = 0.0
 center_trigger = true
 
 [generator]
+state = 'OFF'
 amplitude = 1  #in V
 frequency = 1000 # in Hz
 shape = 'SINE'
+offset = 0 # in V
+phase = 0 # in degrees
+cycle = 0.5 # in %
+channel = 1
