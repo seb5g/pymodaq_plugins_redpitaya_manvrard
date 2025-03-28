@@ -15,13 +15,6 @@ from pymodaq_plugins_redpitaya.utils import Config
 
 plugin_config = Config()
 
-
-# TODO:
-# (1) change the name of the following class to DAQ_Move_TheNameOfYourChoice X
-# (2) change the name of this file to daq_move_TheNameOfYourChoice ("TheNameOfYourChoice" should be the SAME
-#     for the class name and the file name.) X
-# (3) this file should then be put into the right folder, namely IN THE FOLDER OF THE PLUGIN YOU ARE DEVELOPING:
-#     pymodaq_plugins_my_plugin/daq_move_plugins X
 class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
     """ Instrument plugin class for Red Pitaya
 
@@ -31,45 +24,37 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
 
        * Should be compatible with all redpitaya flavours using the SCPI communication protocol
        * Tested with the STEMlab 125-14 version
-       * PyMoDAQ >= 4.1.0
-       * Linux Ubuntu
-       *
-       """
-
-    """ Instrument plugin class for an actuator.
-    
-    This object inherits all functionalities to communicate with PyMoDAQ’s DAQ_Move module through inheritance via
-    DAQ_Move_base. It makes a bridge between the DAQ_Move module and the Python wrapper of a particular instrument.
-
-    TODO Complete the docstring of your plugin with:
-        * The set of controllers and actuators that should be compatible with this instrument plugin. X
-        * With which instrument and controller it has been tested. X
-        * The version of PyMoDAQ during the test. X
-        * The version of the operating system. <--
-        * Installation instructions: what manufacturer’s drivers should be installed to make it run? <--
+       * PyMoDAQ >= 5.0.1
+       * Linux Ubuntu 24.04.1 LTS
+       * Installation instruction:
+        These instructions are valid when using an Ethernet cable to communicate with the Red Pitaya.
+        The instrument is accessed using a TCP/IP Socket communication adapter, in the form: “TCPIP::x.y.z.k::port::SOCKET”
+        - x.y.z.k is the IP address of the SCPI server (that should be activated on the board)
+        - port is the TCP/IP port number, usually 5000
+        To activate the use of the Red Pitaya:
+        1. Connect the redpitaya to your computer/network with an ethernet cable.
+        2. Enter the url address written on the network plug (on the Red Pitaya)
+           It should be something like “RP-F0B462.LOCAL/”
+        3. Browse the menu, open the System application then the Network manager application
+           Look at the ip_address, and modify the config_template
+        4. Return to the menu, open the Development application and activate the SCPI server.
+        5. You can now run daq_move_RedpiatayaSCPI.py
 
     Attributes:
     -----------
     controller: object
         The particular object that allow the communication with the hardware, in general a python wrapper around the
          hardware library.
-         
-    # TODO add your particular attributes here if any
+       """
 
-    """
     is_multiaxes = True
     _axis_names: Union[List[str], Dict[str, int]] = ['amplitude', 'frequency']
     _controller_units: Union[str, List[str]] = ['V','Hz']
-    # TODO  a single str (the same one is applied to all axes) or a list of str (as much as the number of axes)
     _epsilon: Union[float, List[float]] = 0.1  # TODO replace this by a value that is correct depending on your controller
     # TODO it could be a single float of a list of float (as much as the number of axes)
-    data_actuator_type = DataActuatorType.DataActuator  # wether you use the new data style for actuator otherwise set this
-    # as  DataActuatorType.float  (or entirely remove the line)
+    data_actuator_type = DataActuatorType.DataActuator
 
-    plugin_config = Config()
-
-    params = [   # TODO for your custom plugin: elements to be added here as dicts in order to control your custom stage
-                 {'title': 'IP Address:', 'name': 'ip_address', 'type': 'str',
+    params = [   {'title': 'IP Address:', 'name': 'ip_address', 'type': 'str',
                   'value': plugin_config('ip_address')},
                  {'title': 'Port:', 'name': 'port', 'type': 'int', 'value': plugin_config('port')},
                  {'title': 'Board name:', 'name': 'bname', 'type': 'str', 'readonly': True},
@@ -77,9 +62,8 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
                   'value': plugin_config('generator', 'channel')},
                  {'title': 'Enable', 'name': 'enable', 'type': 'list',
                   'limits': AnalogOutputFastChannel.STATE, 'value': plugin_config('generator', 'state')},
-                 #{'title': 'Triggering:', 'name': 'triggering', 'type': 'group', 'children': [
-                     #{'title': 'Source:', 'name': 'source', 'type': 'list',
-                      #'limits': AnalogOutputFastChannel.GEN_TRIGGER_SOURCES, 'value': plugin_config('trigger', 'source')},
+                 #{'title': 'Gen Trigger:', 'name': 'gen_trigger', 'type': 'list',
+                      #'limits': AnalogOutputFastChannel.GEN_TRIGGER_SOURCES, 'value': plugin_config('generator', 'gen_trigger')},
                  #]},
                 {'title': 'Shape', 'name': 'shape', 'type': 'list',
                       'limits': AnalogOutputFastChannel.SHAPES, 'value': plugin_config('generator', 'shape')},
@@ -94,11 +78,7 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
     # the target value. It is the developer responsibility to put here a meaningful value
 
     def ini_attributes(self):
-        #  TODO declare the type of the wrapper (and assign it to self.controller) you're going to use for easy
-        #  autocompletion
         self.controller: RedPitayaScpi = None
-
-        #TODO declare here attributes you want/need to init with a default value
         pass
 
     def get_actuator_value(self):
@@ -109,7 +89,7 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         float: The position obtained after scaling conversion.
         """
         pos = DataActuator(data=getattr(self.aout, self.axis_name),
-                           units=self.axis_unit)  # when writing your own plugin replace this line
+                           units=self.axis_unit)
         pos = self.get_position_with_scaling(pos)
 
         return pos
@@ -141,7 +121,6 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
             A given parameter (within detector_settings) whose value has been changed by the user
         """
         if param.name() == 'axis':
-
             if param.value() =='frequency':
                 self.settings.child('bounds', 'min_bound').setValue(1e-6)
                 self.settings.child('bounds', 'max_bound').setValue(50e6)
@@ -149,7 +128,6 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
                 self.settings.child('bounds', 'min_bound').setValue(0)
                 self.settings.child('bounds', 'max_bound').setValue(1)
 
-            #self.settings['bounds', 'is_bounds']
             self.settings.child('bounds', 'is_bounds').value()
             self.settings.child('bounds', 'is_bounds').setValue(True)
         elif param.name() == 'enable':
@@ -164,9 +142,11 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
             self.aout.dutycycle = param.value()
 
     def is_enabled(self) -> bool:
+        "It defines if the supply volvage is enabled on the output channel chosen"
         return self.settings['enable'] == 'ON'
 
     def enable(self, status = True):
+        "It enables the supply voltage on the chosen output channel if it hasn't been done yet "
         self.aout.enable = 'ON' if status else 'OFF'
 
     @property
