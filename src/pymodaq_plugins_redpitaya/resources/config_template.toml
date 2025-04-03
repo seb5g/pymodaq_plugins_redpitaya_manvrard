@@ -25,7 +25,7 @@ channel = 1
 
 state = 'OFF'
 
-sweep_modes ='LINEAR
+sweep_modes ='LINEAR'
 sweep_start_frequency = 10
 sweep_stop_frequency = 1e6
 time = 1e6

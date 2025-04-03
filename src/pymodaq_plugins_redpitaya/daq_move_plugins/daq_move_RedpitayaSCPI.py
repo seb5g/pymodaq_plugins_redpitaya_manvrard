@@ -4,10 +4,10 @@ from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, comon_p
                                                           main, DataActuatorType, DataActuator)
 
 from pymodaq_utils.utils import ThreadCommand  # object used to send info back to the main thread
+
 from pymodaq_gui.parameter import Parameter
 
 from pymeasure.instruments.redpitaya.redpitaya_scpi import RedPitayaScpi, AnalogOutputFastChannel
-
 
 from pymodaq_data import Q_
 
@@ -23,9 +23,9 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
        Python wrapper of a particular instrument.
 
        * Should be compatible with all redpitaya flavours using the SCPI communication protocol
-       * Tested with the STEMlab 125-14 version
+       * Tested with Red Pitaya 2.00-37 OS | STEMlab 125-14
        * PyMoDAQ >= 5.0.1
-       * Linux Ubuntu 24.04.1 LTS
+       * Tested with Linux Ubuntu 24.04.1 LTS
        * Installation instruction:
         These instructions are valid when using an Ethernet cable to communicate with the Red Pitaya.
         The instrument is accessed using a TCP/IP Socket communication adapter, in the form: “TCPIP::x.y.z.k::port::SOCKET”
@@ -60,11 +60,10 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
                  {'title': 'Board name:', 'name': 'bname', 'type': 'str', 'readonly': True},
                  {'title': 'Channel', 'name': 'channel', 'type': 'list', 'limits':{'1': 1, '2': 2},
                   'value': plugin_config('generator', 'channel')},
-                 {'title': 'Enable', 'name': 'enable', 'type': 'list',
-                  'limits': AnalogOutputFastChannel.STATE, 'value': plugin_config('generator', 'state')},
-                 #{'title': 'Gen Trigger:', 'name': 'gen_trigger', 'type': 'list',
-                      #'limits': AnalogOutputFastChannel.GEN_TRIGGER_SOURCES, 'value': plugin_config('generator', 'gen_trigger')},
-                 #]},
+                 {'title': 'Gen Trigger:', 'name': 'gen_trigger', 'type': 'list',
+                  'limits': AnalogOutputFastChannel.GEN_TRIGGER_SOURCES, 'value': plugin_config('generator', 'gen_trigger'),
+                  'readonly': True},  #[Type]: "not working at the moment"},
+                 {'title': 'Enable', 'name': 'enable', 'type': 'bool', 'value': True },
                 {'title': 'Shape', 'name': 'shape', 'type': 'list',
                       'limits': AnalogOutputFastChannel.SHAPES, 'value': plugin_config('generator', 'shape')},
                  {'title': 'Offset', 'name': 'offset', 'type': 'float', 'limits' : AnalogOutputFastChannel.OFFSETS,
@@ -110,7 +109,7 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
 
     def close(self):
         """Terminate the communication protocol"""
-        self.enable(False)
+        self.aout.enable = False
 
     def commit_settings(self, param: Parameter):
         """Apply the consequences of a change of value in the detector settings
@@ -142,12 +141,8 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
             self.aout.dutycycle = param.value()
 
     def is_enabled(self) -> bool:
-        "It defines if the supply volvage is enabled on the output channel chosen"
-        return self.settings['enable'] == 'ON'
-
-    def enable(self, status = True):
-        "It enables the supply voltage on the chosen output channel if it hasn't been done yet "
-        self.aout.enable = 'ON' if status else 'OFF'
+        "It defines if the supply voltage is enabled on the output channel chosen"
+        return self.settings['enable'] == True
 
     @property
     def aout(self):
@@ -193,7 +188,7 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
         value: (float) value of the absolute target positioning
         """
         if not self.is_enabled():
-            self.enable()
+            self.aout.enable = True
         value = self.check_bound(value)  #if user checked bounds, the defined bounds are applied here
         self.target_value = value
         value = self.set_position_with_scaling(value)  # apply scaling if the user specified one
