@@ -1,6 +1,6 @@
 title = 'this is the configuration file of the redpitaya plugin'
 
-ip_address = '169.254.134.87'
+ip_address = '10.42.0.77'
 port = 5000
 
 [sampling]
@@ -13,11 +13,20 @@ level = 0.0
 center_trigger = true
 
 [generator]
-state = 'OFF'
-amplitude = 1  #in V
+gen_trigger = 'INT'
+enabling = false
+amplitude = 0.05 #in V # default 1
 frequency = 1000 # in Hz
 shape = 'SINE'
 offset = 0 # in V
 phase = 0 # in degrees
 cycle = 0.5 # in %
 channel = 1
+
+state = 'OFF'
+
+sweep_modes ='LINEAR
+sweep_start_frequency = 10
+sweep_stop_frequency = 1e6
+time = 1e6
+direction = 'NORMAL'
