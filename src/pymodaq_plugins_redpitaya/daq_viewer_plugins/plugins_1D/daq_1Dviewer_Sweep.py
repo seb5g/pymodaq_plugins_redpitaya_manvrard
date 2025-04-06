@@ -36,15 +36,14 @@ class DAQ_1DViewer_Sweep(DAQ_1DViewer_RedPitayaSCPI):
         The particular object that allow the communication with the hardware, in general a python wrapper around the
          hardware library.
 
-    # TODO add your particular attributes here if any
-
     """
-    params = comon_parameters + DAQ_1DViewer_RedPitayaSCPI.params + [
-    {'title': 'Output:', 'name': 'output', 'type': 'group', 'children': [
-        {'title': 'Output Channel', 'name': 'aout_channel', 'type': 'list', 'limits': {'1': 1, '2': 2}},
+    params = DAQ_1DViewer_RedPitayaSCPI.params + [
+    {'title': 'Analog Output:', 'name': 'output', 'type': 'group', 'children': [
+        {'title': 'AO Channel', 'name': 'aout_channel', 'type': 'list', 'limits': {'1': 1, '2': 2}},
+
         {'title': 'Amplitude', 'name': 'amplitude', 'type': 'float', 'limits': AnalogOutputFastChannel.AMPLITUDES,
          'value': plugin_config('generator', 'amplitude')},
-        {'title': 'Enable', 'name': 'enable', 'type': 'bool', 'value': True},
+        {'title': 'Enable', 'name': 'enable', 'type': 'bool', 'value': False},
         {'title': 'Shape', 'name': 'shape', 'type': 'list',
          'limits': AnalogOutputFastChannel.SHAPES, 'value': plugin_config('generator', 'shape')},
         {'title': 'Offset', 'name': 'offset', 'type': 'float', 'limits': AnalogOutputFastChannel.OFFSETS,
@@ -59,12 +58,10 @@ class DAQ_1DViewer_Sweep(DAQ_1DViewer_RedPitayaSCPI):
         {'title': 'Sweep Stop Frequency', 'name': 'sweep_stop_frequency', 'type': 'float',
          'limits': AnalogOutputFastChannel.FREQUENCIES,
          'value': plugin_config('generator', 'sweep_stop_frequency')},
-        {'title': 'Sweep Time', 'name': 'sweep_time', 'type': 'integer', 'limits': AnalogOutputFastChannel.TIME,
+        {'title': 'Sweep Time', 'name': 'sweep_time', 'type': 'int', 'limits': AnalogOutputFastChannel.TIME,
          'value': plugin_config('generator', 'time')},
-        {'title': 'Sweep Pause', 'name': 'sweep_pause', 'type': 'list', 'limits': AnalogOutputFastChannel.STATE,
-         'value': plugin_config('generator', 'state')},
-        {'title': 'Sweep State', 'name': 'sweep_state', 'type': 'list', 'limits': AnalogOutputFastChannel.STATE,
-         'value': plugin_config('generator', 'state')},
+        {'title': 'Sweep Pause', 'name': 'sweep_pause', 'type': 'bool', 'value': False},
+        {'title': 'Sweep State', 'name': 'sweep_state', 'type': 'bool', 'value': False},
         {'title': 'Sweep Direction', 'name': 'sweep_direction', 'type': 'list', 'limits': AnalogOutputFastChannel.DIRECTION,
          'value': plugin_config('generator', 'direction')},
     ]},
@@ -110,56 +107,64 @@ class DAQ_1DViewer_Sweep(DAQ_1DViewer_RedPitayaSCPI):
     @property
     def aout(self):
         """ It defines what output channel the user chose"""
-        return self.controller.analog_out[self.settings['aout_channel']]
+        return self.controller.analog_out[self.settings['output', 'aout_channel']]
 
 
-def grab_data(self, Naverage=1, **kwargs):
-    """Start a grab from the detector
+    def grab_data(self, Naverage=1, **kwargs):
+        """Start a grab from the detector
 
-    Parameters
-    ----------
-    Naverage: int
-        Number of hardware averaging (if hardware averaging is possible, self.hardware_averaging should be set to
-        True in class preamble and you should code this implementation)
-    kwargs: dict
-        others optionals arguments
-    """
+        Parameters
+        ----------
+        Naverage: int
+            Number of hardware averaging (if hardware averaging is possible, self.hardware_averaging should be set to
+            True in class preamble and you should code this implementation)
+        kwargs: dict
+            others optionals arguments
+        """
+        self.controller.output_reset()
 
-    nsamples = self.settings['sampling', 'nsamples']
-    wait_time = nsamples / self.controller.CLOCK * self.settings['sampling', 'decimation']
+        nsamples = self.settings['sampling', 'nsamples']
+        wait_time = nsamples / self.controller.CLOCK * self.settings['sampling', 'decimation']
 
-    if self.settings['triggering', 'center_trigger']:
-        offset = -self.settings['sampling', 'decimation'] / self.controller.CLOCK * nsamples / 2
-    else:
-        offset = 0
+        if self.settings['triggering', 'center_trigger']:
+            offset = -self.settings['sampling', 'decimation'] / self.controller.CLOCK * nsamples / 2
+        else:
+            offset = 0
 
-    self.controller.acquisition_start()
+        self.controller.acquisition_start()
 
 
-    QThread.msleep(max((1, int(wait_time * 1000))))
-    self.controller.acq_trigger_source = self.settings['triggering', 'source']
+        QThread.msleep(max((1, int(wait_time * 1000))))
+        self.controller.acq_trigger_source = self.settings['triggering', 'source']
 
-    self.aout.enable = True
-    self.aout.run()
+        self.aout.sweep_state = True
+        self.aout.enable = True
+        self.aout.run()
 
-    while not self.controller.acq_trigger_status:
-        QThread.msleep(10)
-        QtWidgets.QApplication.processEvents()
+        while not self.controller.acq_trigger_status:
+            QThread.msleep(10)
+            QtWidgets.QApplication.processEvents()
 
-    while not self.controller.acq_buffer_filled:
-        QThread.msleep(10)
-        QtWidgets.QApplication.processEvents()
+        while not self.controller.acq_buffer_filled:
+            QThread.msleep(10)
+            QtWidgets.QApplication.processEvents()
 
-    data_list = [self.controller.analog_in[1].get_data(npts=nsamples)]
-    data_list.append(self.controller.analog_in[2].get_data(npts=nsamples))
-    axis = Axis('time', units='s', offset=offset,
-                scaling=self.settings['sampling', 'decimation'] / self.controller.CLOCK,
-                size=nsamples)
-    self.dte_signal.emit(DataToExport('Redpitaya_dte',
-                                      data=[DataFromPlugins(name='RedPitaya', data=data_list,
-                                                            dim='Data1D', labels=['AI0'],
-                                                            axes=[axis])]))
+        data_list = [self.controller.analog_in[1].get_data(npts=nsamples)]
+        data_list.append(self.controller.analog_in[2].get_data(npts=nsamples))
+        axis = Axis('time', units='s', offset=offset,
+                    scaling=self.settings['sampling', 'decimation'] / self.controller.CLOCK,
+                    size=nsamples)
+        self.dte_signal.emit(DataToExport('Redpitaya_dte',
+                                          data=[DataFromPlugins(name='RedPitaya', data=data_list,
+                                                                dim='Data1D', labels=['AI0'],
+                                                                axes=[axis])]))
+        self.stop()
 
+    def stop(self):
+        """Stop the current grab hardware wise if necessary"""
+        super().stop()
+        self.aout.enable= False
+        return ''
 
 if __name__ == '__main__':
     main(__file__)

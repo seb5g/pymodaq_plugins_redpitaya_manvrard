@@ -50,7 +50,7 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
     is_multiaxes = True
     _axis_names: Union[List[str], Dict[str, int]] = ['amplitude', 'frequency']
     _controller_units: Union[str, List[str]] = ['V','Hz']
-    _epsilon: Union[float, List[float]] = 0.1  # TODO replace this by a value that is correct depending on your controller
+    _epsilon: Union[float, List[float]] = 0.1  # Detailing 1mV and 1Hz #TODO replace this by a value that is correct depending on your controller
     # TODO it could be a single float of a list of float (as much as the number of axes)
     data_actuator_type = DataActuatorType.DataActuator
 
@@ -60,10 +60,11 @@ class DAQ_Move_RedpitayaSCPI(DAQ_Move_base):
                  {'title': 'Board name:', 'name': 'bname', 'type': 'str', 'readonly': True},
                  {'title': 'Channel', 'name': 'channel', 'type': 'list', 'limits':{'1': 1, '2': 2},
                   'value': plugin_config('generator', 'channel')},
+
                  {'title': 'Gen Trigger:', 'name': 'gen_trigger', 'type': 'list',
                   'limits': AnalogOutputFastChannel.GEN_TRIGGER_SOURCES, 'value': plugin_config('generator', 'gen_trigger'),
                   'readonly': True},  #[Type]: "not working at the moment"},
-                 {'title': 'Enable', 'name': 'enable', 'type': 'bool', 'value': True },
+                 {'title': 'Enable', 'name': 'enable', 'type': 'bool', 'value': False },
                 {'title': 'Shape', 'name': 'shape', 'type': 'list',
                       'limits': AnalogOutputFastChannel.SHAPES, 'value': plugin_config('generator', 'shape')},
                  {'title': 'Offset', 'name': 'offset', 'type': 'float', 'limits' : AnalogOutputFastChannel.OFFSETS,
