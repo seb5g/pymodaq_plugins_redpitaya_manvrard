@@ -60,7 +60,6 @@ class DAQ_1DViewer_Sweep(DAQ_1DViewer_RedPitayaSCPI):
          'value': plugin_config('generator', 'sweep_stop_frequency')},
         {'title': 'Sweep Time', 'name': 'sweep_time', 'type': 'int', 'limits': AnalogOutputFastChannel.TIME,
          'value': plugin_config('generator', 'time')},
-        {'title': 'Sweep Pause', 'name': 'sweep_pause', 'type': 'bool', 'value': False},
         {'title': 'Sweep State', 'name': 'sweep_state', 'type': 'bool', 'value': False},
         {'title': 'Sweep Direction', 'name': 'sweep_direction', 'type': 'list', 'limits': AnalogOutputFastChannel.DIRECTION,
          'value': plugin_config('generator', 'direction')},
@@ -97,8 +96,6 @@ class DAQ_1DViewer_Sweep(DAQ_1DViewer_RedPitayaSCPI):
             self.aout.sweep_start_frequency = param.value()
         elif param.name() == 'sweep_stop_frequency':
             self.aout.sweep_stop_frequency = param.value()
-        elif param.name() == 'sweep_pause':
-            self.aout.sweep_pause = param.value()
         elif param.name() == 'sweep_state':
             self.aout.sweep_state = param.value()
         elif param.name() == 'sweep_direction':
